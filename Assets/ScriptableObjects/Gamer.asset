@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0772313d782b1bf4abff8310424b4e9d, type: 3}
+  m_Name: Gamer
+  m_EditorClassIdentifier: 
+  partnerName: Gamer
+  modelPrefab: {fileID: 7602498130146761381, guid: f6d917142e2c14b46b2c6443abc99957, type: 3}
+  partnerPool: []
+  partnerPortrait: {fileID: 21300000, guid: 88d5cc367b5edb348948129373f9cd77, type: 3}
+  maxHealth: 8
+  attack: 10
+  salary: 10
+  personality: 1
+  deathSoundClip: {fileID: 8300000, guid: 02bffe39b19d98b4ba178feeafa39941, type: 3}
+  firstWarningDialogue: What'dya mean you aint got the energy?! Whatever, i'll let
+    it go this time...
+  finalWarningDialogue: 'Hey man, this isn''t a charity! I''m outta here, cheapskate! '
