@@ -42,8 +42,8 @@ public class BoardTile : MonoBehaviour
     {
         if (tileType == TileType.Start)
         {
-            // Start the coroutine on the player to assign a partner
-            player.StartCoroutine(player.SpawnPartnerRoutine(partnerPool));
+            // NO LONGER NEEDED - handled in PlayerMover
+            // player.StartCoroutine(player.SpawnPartnerRoutine(partnerPool));
             return;  // Skip other tile logic for start tile if you want
         }
         switch (tileType)

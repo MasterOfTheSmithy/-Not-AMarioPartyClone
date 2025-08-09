@@ -2,48 +2,35 @@ using UnityEngine;
 
 public static class BattleSystem
 {
-    public static void ResolveBattle(PlayerMover attacker, PlayerMover defender)
+    public static void ResolveBattle(PlayerMover attacker, PlayerMover defender, bool isFrontAttack)
     {
-        PartnerInstance attackingPartner = attacker.frontPartner;
+        PartnerInstance attackingPartner = isFrontAttack ? attacker.frontPartner : attacker.backPartner;
+        PartnerInstance defendingPartner = isFrontAttack ? defender.frontPartner : defender.backPartner;
 
-        // If the attacker has no front partner, no attack occurs
-        if (attackingPartner == null)
-        {
-            Debug.Log($"{attacker.PlayerName} has no front partner to attack.");
-            return;
-        }
+        int attackPower = attackingPartner?.GetAttackPower() ?? 1;
 
-        // Defender's defending partner is either front or back (in that order)
-        PartnerInstance defendingPartner = defender.frontPartner ?? defender.backPartner;
-
-        int attackPower = attackingPartner.GetAttackPower();
-        int defenseHP = defendingPartner != null ? defendingPartner.CurrentHP : 0;
-
-        Debug.Log($"{attacker.PlayerName} attacks {defender.PlayerName} with {attackPower} power.");
+        Debug.Log($"{attacker.PlayerName} attacks {defender.PlayerName} from {(isFrontAttack ? "front" : "behind")}");
 
         if (defendingPartner != null)
         {
+            int defenseHP = defendingPartner.CurrentHP;
+
             if (attackPower > defenseHP)
             {
-                int excessDamage = attackPower - defenseHP;
-                defendingPartner.TakeDamage(defenseHP); // Defeat the partner
-                Debug.Log($"{defender.PlayerName}'s partner was defeated!");
-                defender.ModifyHealth(-excessDamage);
-                Debug.Log($"{defender.PlayerName} took {excessDamage} excess damage!");
+                int excess = attackPower - defenseHP;
+                defendingPartner.TakeDamage(defenseHP);
+                defender.ModifyHealth(-excess);
             }
             else
             {
                 defendingPartner.TakeDamage(attackPower);
-                Debug.Log($"{defender.PlayerName}'s partner took {attackPower} damage.");
             }
         }
         else
         {
-            // No defending partner — attack player directly
             defender.ModifyHealth(-attackPower);
-            Debug.Log($"{defender.PlayerName} had no partner. Took {attackPower} direct damage!");
         }
 
-        // Future: Add animation, sound, UI flash, or camera shake
+        
     }
 }

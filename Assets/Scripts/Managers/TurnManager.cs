@@ -3,49 +3,60 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+public enum TurnPhase
+{
+    RollingTurnOrder,
+    StartingTurn,
+    WaitingForRoll,
+    Moving,
+    ResolvingTile,
+    Combat,
+    EndingTurn
+}
+
 public class TurnManager : MonoBehaviour
 {
-    public static TurnManager Instance { get; private set; }  // Singleton Instance
+    public static TurnManager Instance { get; private set; }
 
-    public List<PlayerMover> players; // Assign players in inspector or dynamically
-    private List<PlayerTurnData> turnOrder;
+    [SerializeField] private List<PlayerMover> players = new();
+    [SerializeField] private RectTransform canvasTransform;
+    [SerializeField] private DiceRoller diceRoller;
+
+    private List<PlayerTurnData> turnOrder = new();
     private int currentRollerIndex = 0;
-    public bool isRollingTurnOrder = true;
     private int currentTurnIndex = 0;
-    public RectTransform canvasTransform;
+    public bool isRollingTurnOrder = true;
 
-    // Safe CurrentPlayer property with null and bounds checks
-    public PlayerMover CurrentPlayer
+    public TurnPhase CurrentPhase { get; private set; }
+    public event System.Action<TurnPhase> OnPhaseChanged;
+
+    public void SetPhase(TurnPhase newPhase)
     {
-        get
-        {
-            if (turnOrder == null || turnOrder.Count == 0)
-            {
-                Debug.LogError("Turn order is empty!");
-                return null;
-            }
-            if (currentTurnIndex < 0 || currentTurnIndex >= turnOrder.Count)
-            {
-                Debug.LogError($"currentTurnIndex {currentTurnIndex} out of range!");
-                return null;
-            }
-            return turnOrder[currentTurnIndex].player;
-        }
+        CurrentPhase = newPhase;
+        Debug.Log($"[TurnManager] Phase changed to {newPhase}");
+        OnPhaseChanged?.Invoke(newPhase);
     }
+
+    public PlayerMover CurrentRollingPlayer =>
+        (players != null && currentRollerIndex >= 0 && currentRollerIndex < players.Count)
+        ? players[currentRollerIndex]
+        : null;
+
+    public PlayerMover CurrentPlayer =>
+        (turnOrder != null && turnOrder.Count > 0 && currentTurnIndex >= 0 && currentTurnIndex < turnOrder.Count)
+        ? turnOrder[currentTurnIndex].player
+        : null;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject); // Only one instance allowed
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
 
     private void Start()
     {
-        turnOrder = new List<PlayerTurnData>();
+        diceRoller ??= FindFirstObjectByType<DiceRoller>();
+        SetPhase(TurnPhase.RollingTurnOrder);
         StartCoroutine(PlayerRollsForTurnOrder());
     }
 
@@ -53,20 +64,18 @@ public class TurnManager : MonoBehaviour
     {
         while (currentRollerIndex < players.Count)
         {
-            PlayerMover player = players[currentRollerIndex];
-
-            Debug.Log($"Player {player.playerId}, press your button to roll for turn order!");
-
+            var player = players[currentRollerIndex];
             bool hasRolled = false;
             int rollResult = 0;
 
-            // Subscribe to the roll event temporarily
+            Debug.Log($"Player {player.playerId}, press your button to roll for turn order!");
+
             PlayerMover.TurnOrderRollHandler handler = null;
             handler = (int roll) =>
             {
                 hasRolled = true;
                 rollResult = roll;
-                player.OnTurnOrderRoll -= handler; // Unsubscribe immediately
+                player.OnTurnOrderRoll -= handler;
             };
             player.OnTurnOrderRoll += handler;
 
@@ -76,7 +85,6 @@ public class TurnManager : MonoBehaviour
             currentRollerIndex++;
         }
 
-        // Sort descending by roll
         turnOrder = turnOrder.OrderByDescending(x => x.roll).ToList();
 
         Debug.Log("Final Turn Order:");
@@ -86,7 +94,7 @@ public class TurnManager : MonoBehaviour
         yield return AnimateHUDsIntoCorners();
 
         isRollingTurnOrder = false;
-        currentTurnIndex = 0;  // Reset turn index safely
+        currentTurnIndex = 0;
 
         StartTurn();
     }
@@ -95,95 +103,39 @@ public class TurnManager : MonoBehaviour
     {
         Vector2[] anchors = new Vector2[]
         {
-        new Vector2(0, 1), // top-left
-        new Vector2(1, 1), // top-right
-        new Vector2(0, 0), // bottom-left
-        new Vector2(1, 0)  // bottom-right
+            new Vector2(0, 1), new Vector2(1, 1),
+            new Vector2(0, 0), new Vector2(1, 0)
+        };
+
+        Vector2[] startOffsets = new Vector2[]
+        {
+            new Vector2(-200, 0), new Vector2(200, 0),
+            new Vector2(-200, 0), new Vector2(200, 0)
         };
 
         float duration = 1.0f;
 
-        // Define starting offsets for each corner to start HUD offscreen / away
-        Vector2[] startOffsets = new Vector2[]
-        {
-        new Vector2(-200, 0),  // off left (for top-left)
-        new Vector2(200, 0),   // off right (for top-right)
-        new Vector2(-200, 0),  // off left (for bottom-left)
-        new Vector2(200, 0)    // off right (for bottom-right)
-        };
-
-        for (int i = 0; i < turnOrder.Count; i++)
+        for (int i = 0; i < turnOrder.Count && i < anchors.Length; i++)
         {
             PlayerHUD hud = turnOrder[i].player.playerHUD;
             RectTransform rt = hud.GetComponent<RectTransform>();
 
             Vector2 targetAnchor = anchors[i];
-
-            // Snap anchors and pivot instantly
             rt.anchorMin = targetAnchor;
             rt.anchorMax = targetAnchor;
             rt.pivot = targetAnchor;
-
-            // Set anchoredPosition to start offset (offscreen start)
             rt.anchoredPosition = startOffsets[i];
-
-            Vector2 startPos = startOffsets[i];
-            Vector2 endPos = Vector2.zero;
 
             float elapsed = 0f;
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
                 float t = Mathf.Clamp01(elapsed / duration);
-                rt.anchoredPosition = Vector2.Lerp(startPos, endPos, t);
+                rt.anchoredPosition = Vector2.Lerp(startOffsets[i], Vector2.zero, t);
                 yield return null;
             }
 
-            rt.anchoredPosition = endPos;
-        }
-    }
-
-    private void AssignPlayerHUDsByTurnOrder()
-    {
-        Vector2[] anchors = new Vector2[]
-        {
-            new Vector2(0, 1), // top-left
-            new Vector2(1, 1), // top-right
-            new Vector2(0, 0), // bottom-left
-            new Vector2(1, 0)  // bottom-right
-        };
-
-        Vector2[] pivots = new Vector2[]
-        {
-            new Vector2(0, 1), // top-left
-            new Vector2(1, 1), // top-right
-            new Vector2(0, 0), // bottom-left
-            new Vector2(1, 0)  // bottom-right
-        };
-
-        Vector2[] offsets = new Vector2[]
-        {
-            new Vector2(10, -10),  // top-left
-            new Vector2(-10, -10), // top-right
-            new Vector2(10, 10),   // bottom-left
-            new Vector2(-10, 10)   // bottom-right
-        };
-
-        for (int i = 0; i < turnOrder.Count && i < anchors.Length; i++)
-        {
-            PlayerMover player = turnOrder[i].player;
-            PlayerHUD hud = player.playerHUD;
-
-            if (hud != null)
-            {
-                RectTransform rt = hud.GetComponent<RectTransform>();
-                rt.anchorMin = anchors[i];
-                rt.anchorMax = anchors[i];
-                rt.pivot = pivots[i];
-                rt.anchoredPosition = offsets[i];
-
-                hud.SetHighlight(i == currentTurnIndex);
-            }
+            rt.anchoredPosition = Vector2.zero;
         }
     }
 
@@ -191,50 +143,76 @@ public class TurnManager : MonoBehaviour
     {
         if (CurrentPlayer == null)
         {
-            Debug.LogWarning("StartTurn called but CurrentPlayer is null, skipping.");
+            Debug.LogWarning("StartTurn() - CurrentPlayer is null.");
             return;
         }
 
-        PlayerMover currentPlayer = CurrentPlayer;
-        Debug.Log($"Player {currentPlayer.playerId}'s turn starts.");
-        currentPlayer.StartTurn();
-        CameraFollow camFollow = Camera.main.GetComponent<CameraFollow>();
+        SetPhase(TurnPhase.StartingTurn);
+
+        var player = CurrentPlayer;
+        player.StartTurn();
+        diceRoller.BeginTurn();
+
+        CameraFollow camFollow = Camera.main?.GetComponent<CameraFollow>();
         if (camFollow != null)
         {
-            camFollow.target = currentPlayer.transform;
+            camFollow.target = player.transform;
         }
 
-        foreach (var playerData in turnOrder)
-        {
-            bool isCurrent = playerData.player == currentPlayer;
-            playerData.player.playerHUD.SetHighlight(isCurrent);
-        }
+        foreach (var p in turnOrder)
+            p.player.playerHUD.SetHighlight(p.player == player);
 
-        AssignPlayerHUDsByTurnOrder();
-
-        currentPlayer.DeductPartnerSalaries();
-
-        // TODO: Enable current player controls and disable others as needed
+        player.DeductPartnerSalaries();
+        SetPhase(TurnPhase.WaitingForRoll);
     }
 
+    public IEnumerator ResolveTilePhase()
+    {
+        SetPhase(TurnPhase.ResolvingTile);
+
+        yield return new WaitForSeconds(0.25f);
+
+        BoardTile tile = CurrentPlayer?.currentTile;
+
+        if (tile != null)
+        {
+            tile.OnPlayerLand(CurrentPlayer);
+        }
+
+        yield return new WaitForSeconds(0.5f);
+
+        SetPhase(TurnPhase.EndingTurn);
+        StartCoroutine(NextTurnCoroutine());
+    }
+    public void TriggerCombat(PlayerMover attacker, PlayerMover defender, bool isFront, System.Action onCombatResolved = null)
+    {
+        SetPhase(TurnPhase.Combat);
+        BattleSystem.ResolveBattle(attacker, defender, isFront);
+        StartCoroutine(ResumePostCombat(attacker, onCombatResolved));
+    }
+
+    private IEnumerator ResumePostCombat(PlayerMover actor, System.Action onCombatResolved = null)
+    {
+        yield return new WaitForSeconds(0.4f); // Short delay for VFX, etc.
+        onCombatResolved?.Invoke(); // ✅ Resume movement
+    }
+    private IEnumerator FinishCombatAfterDelay()
+    {
+        yield return new WaitForSeconds(1.0f);  // optional: wait for animations
+        SetPhase(TurnPhase.EndingTurn);
+        StartCoroutine(NextTurnCoroutine());
+    }
     public IEnumerator NextTurnCoroutine()
     {
         if (CurrentPlayer == null)
         {
-            Debug.LogWarning("NextTurnCoroutine called but CurrentPlayer is null.");
+            Debug.LogWarning("NextTurnCoroutine - CurrentPlayer is null.");
             yield break;
         }
 
         yield return CurrentPlayer.CheckPartnersEndTurnCoroutine();
 
         currentTurnIndex = (currentTurnIndex + 1) % turnOrder.Count;
-
         StartTurn();
-
-        DiceRoller diceRoller = FindFirstObjectByType<DiceRoller>();
-        if (diceRoller != null)
-        {
-            diceRoller.BeginTurn();
-        }
     }
 }
