@@ -43,6 +43,7 @@ public class TileChoiceUI : MonoBehaviour
             {
                 col = arrow.AddComponent<BoxCollider>();
             }
+            col.isTrigger = true;
 
             // Ensure Rigidbody is present and set to kinematic (required for EventSystem to detect physics events)
             Rigidbody rb = arrow.GetComponent<Rigidbody>();
