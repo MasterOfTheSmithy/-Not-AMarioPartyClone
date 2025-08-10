@@ -34,12 +34,19 @@ public class DiceRoller : MonoBehaviour
     private int rollResult = 0;
 
     private Vector3 followOffset = Vector3.zero;
+    private void Awake()
+    {
+        // Preload a few dice instances for pooling at scene start
+        SimplePool.Preload(dicePrefab, 4);
+    }
 
     public void BeginTurn()
     {
         if (activeDice != null)
         {
-            Destroy(activeDice);
+            SimplePool.Return(dicePrefab, activeDice);
+            diceTransform = null;
+            faceText = null;
             activeDice = null;
         }
 
@@ -84,16 +91,16 @@ public class DiceRoller : MonoBehaviour
     private void SpawnAndSpinDice()
     {
         if (activeDice != null)
-            Destroy(activeDice);
+            SimplePool.Return(dicePrefab, activeDice);
 
         Vector3 spawnPos = currentPlayer.transform.position + Vector3.up * heightAbovePlayer;
-        activeDice = Instantiate(dicePrefab, spawnPos, Quaternion.identity);
+        activeDice = SimplePool.Get(dicePrefab);
         diceTransform = activeDice.transform;
 
         faceText = activeDice.GetComponentInChildren<TextMeshPro>();
         if (faceText != null)
             faceText.text = "";
-
+        diceTransform.position = spawnPos;
         diceTransform.rotation = Quaternion.identity;
         isSpinning = true;
         isRolling = false;
@@ -159,7 +166,12 @@ public class DiceRoller : MonoBehaviour
         }
 
         if (activeDice != null)
-            Destroy(activeDice);
+        {
+            SimplePool.Return(dicePrefab, activeDice);
+            activeDice = null;
+            diceTransform = null;
+            faceText = null;
+        }
 
         followOffset = Vector3.zero;
 
@@ -174,9 +186,10 @@ public class DiceRoller : MonoBehaviour
 
         if (dicePrefab != null && activeDice == null)
         {
-            activeDice = Instantiate(dicePrefab);
+            activeDice = SimplePool.Get(dicePrefab);
             Vector3 startPos = player.transform.position + new Vector3(0, diceFollowHeight, -diceFollowDistance);
             activeDice.transform.position = startPos;
+            activeDice.transform.rotation = Quaternion.identity;
         }
     }
 
@@ -184,8 +197,11 @@ public class DiceRoller : MonoBehaviour
     {
         yield return new WaitForSeconds(0.2f);
 
-        if (activeDice != null) Destroy(activeDice);
-        activeDice = null;
+        if (activeDice != null)
+        {
+            SimplePool.Return(dicePrefab, activeDice);
+            activeDice = null;
+        }
 
         var cb = onTurnOrderRolledCallback;
         onTurnOrderRolledCallback = null;

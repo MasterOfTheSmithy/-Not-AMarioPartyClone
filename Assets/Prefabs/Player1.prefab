@@ -13,6 +13,8 @@ GameObject:
   - component: {fileID: 5585689401338692382}
   - component: {fileID: 6925832427414415479}
   - component: {fileID: 6009693237903083964}
+  - component: {fileID: 2915666573393230109}
+  - component: {fileID: -1899499001265034022}
   m_Layer: 0
   m_Name: Player1
   m_TagString: Untagged
@@ -123,7 +125,63 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 050aae0fa295e7b46b45825f68745a4f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerId: 0
+  health: 10
+  playerHUD: {fileID: 0}
+  partnerDialogueUI: {fileID: 0}
   currentTile: {fileID: 0}
-  moveSpeed: 3
+  partnerChoiceUI: {fileID: 0}
   tileChoiceUI: {fileID: 0}
-  energy: 10
+  moveSpeed: 3
+  frontPartner: {fileID: 0}
+  backPartner: {fileID: 0}
+  testPartnerData: {fileID: 0}
+  PlayerName: 
+--- !u!135 &2915666573393230109
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3184579732381983902}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 0.5
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!54 &-1899499001265034022
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3184579732381983902}
+  serializedVersion: 4
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0

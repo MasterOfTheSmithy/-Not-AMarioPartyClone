@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
+[RequireComponent(typeof(SphereCollider))]
 public class PlayerMover : MonoBehaviour
 {
     public int playerId;
@@ -29,6 +29,7 @@ public class PlayerMover : MonoBehaviour
     private bool hasAssignedPartnerAfterStart = false;
     private bool isPartnerSpawning = false;
     private bool isMoving = false;
+    private bool isPausedForBattle = false;
 
     public PartnerInstance frontPartner;
     public PartnerInstance backPartner;
@@ -41,9 +42,16 @@ public class PlayerMover : MonoBehaviour
     public event Action<int> OnStep;
     public event Action<int> OnEnergyChanged;
 
+    private SphereCollider triggerCollider;
     private void Awake()
     {
         animator = GetComponentInChildren<Animator>();
+        triggerCollider = GetComponent<SphereCollider>();
+        if (triggerCollider != null)
+        {
+            triggerCollider.isTrigger = true;
+            triggerCollider.radius = 0.6f;
+        }
         UpdateStatsUI();
 
         if (partnerChoiceUI == null)
@@ -98,7 +106,35 @@ public class PlayerMover : MonoBehaviour
             playerHUD.UpdateHealth(health);
         }
     }
+    private void OnTriggerEnter(Collider other)
+    {
+        PlayerMover otherPlayer = other.GetComponent<PlayerMover>();
+        if (otherPlayer == null || otherPlayer == this)
+            return;
 
+        if (battledThisStep.Contains(otherPlayer) || otherPlayer.battledThisStep.Contains(this))
+            return;
+
+        battledThisStep.Add(otherPlayer);
+        otherPlayer.battledThisStep.Add(this);
+
+        isPausedForBattle = true;
+        bool isFrontAttack = Vector3.Dot(transform.forward, (otherPlayer.transform.position - transform.position).normalized) > 0;
+        TurnManager.Instance.TriggerCombat(this, otherPlayer, isFrontAttack, () =>
+        {
+            isPausedForBattle = false;
+        });
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        PlayerMover otherPlayer = other.GetComponent<PlayerMover>();
+        if (otherPlayer == null)
+            return;
+
+        battledThisStep.Remove(otherPlayer);
+        otherPlayer.battledThisStep.Remove(this);
+    }
     public void MovePlayer(int steps, Action onComplete = null)
     {
         if (!isMoving)
@@ -175,10 +211,21 @@ public class PlayerMover : MonoBehaviour
 
         while (t < 1f)
         {
+            if (isPausedForBattle)
+            {
+                yield return null;
+                continue;
+            }
+
             t += Time.deltaTime * moveSpeed;
             transform.position = Vector3.Lerp(start, end, Mathf.SmoothStep(0, 1, t));
 
-            Collider[] hits = Physics.OverlapSphere(transform.position, 0.6f);
+            Vector3 offset = (Vector3)LogicalFacing;
+            frontPartner?.SetTargetPosition(transform.position + offset * 1.2f + Vector3.up * 0.4f);
+            backPartner?.SetTargetPosition(transform.position - offset * 1.2f + Vector3.up * 0.4f);
+
+            // 🔍 Detect collision with enemy players using front partner range
+            Collider[] hits = Physics.OverlapSphere(transform.position + offset * 1.2f, 0.5f);
             foreach (var hit in hits)
             {
                 PlayerMover other = hit.GetComponent<PlayerMover>();
@@ -187,22 +234,26 @@ public class PlayerMover : MonoBehaviour
                     battledThisStep.Add(other);
                     other.battledThisStep.Add(this);
 
-                    bool isFrontAttack = Vector3.Dot(transform.forward, (other.transform.position - transform.position).normalized) > 0;
-                    bool resolved = false;
+                    // ✅ Use current move direction for combat orientation
+                    bool isFrontAttack = true;
 
-                    TurnManager.Instance.TriggerCombat(this, other, isFrontAttack, () => resolved = true);
-                    yield return new WaitUntil(() => resolved);
-                    yield break; // resume movement after combat
+                    isPausedForBattle = true;
+
+                    TurnManager.Instance.TriggerCombat(this, other, isFrontAttack, () =>
+                    {
+                        isPausedForBattle = false;
+                    });
+
+                    // Wait for battle to finish before continuing
+                    yield return new WaitUntil(() => !isPausedForBattle);
+                    break;
                 }
             }
-
-            Vector3 offset = (Vector3)LogicalFacing;
-            frontPartner?.SetTargetPosition(transform.position + offset * 1.2f + Vector3.up * 0.4f);
-            backPartner?.SetTargetPosition(transform.position - offset * 1.2f + Vector3.up * 0.4f);
 
             yield return null;
         }
     }
+
 
     public void ReceiveTileChoice(BoardTile chosenTile)
     {

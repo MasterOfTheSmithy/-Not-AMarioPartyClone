@@ -124,4 +124,8 @@ MonoBehaviour:
   gridPosition: {x: 0, y: 0}
   nextTiles: []
   isSpecialTile: 0
+  tileEffects:
+  - {fileID: 11400000, guid: 3a153a1407001b44fae548d9c4757827, type: 2}
   tileType: 7
+  isStartTile: 0
+  partnerPool: []

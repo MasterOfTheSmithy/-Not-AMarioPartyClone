@@ -7,6 +7,7 @@ public class BoardTile : MonoBehaviour
     public Vector2Int gridPosition;                     // Logical grid coordinates (optional)
     public List<BoardTile> nextTiles = new List<BoardTile>(); // Tiles connected ahead
     public bool isSpecialTile = false;                  // For special behaviors
+    public List<TileEffect> tileEffects = new List<TileEffect>();
     public TileType tileType = TileType.Normal;
     public bool isStartTile = false;
     public PartnerData[] partnerPool;
@@ -46,41 +47,15 @@ public class BoardTile : MonoBehaviour
             // player.StartCoroutine(player.SpawnPartnerRoutine(partnerPool));
             return;  // Skip other tile logic for start tile if you want
         }
-        switch (tileType)
+        foreach (TileEffect effect in tileEffects)
         {
-            case TileType.Positive:  // Positive tile effect
-                player.ModifyEnergy(3);
-                Debug.Log($"{player.name} landed on a Positive tile! Gained 3 energy.");
-                break;
-
-            case TileType.Negative:  // Negative tile effect
-                player.ModifyEnergy(-3);
-                Debug.Log($"{player.name} landed on a Negative tile! Lost 3 energy.");
-                break;
-
-            case TileType.Battle:
-                Debug.Log("Battle tile! Trigger battle event here.");
-                break;
-
-            case TileType.Chance:
-                Debug.Log("Chance tile! Trigger chance event here.");
-                break;
-
-            case TileType.Event:
-                Debug.Log("Event tile! Trigger event here.");
-                break;
-
-            case TileType.Swap:
-                Debug.Log("Swap tile! Trigger swap event here.");
-                break;
-
-            case TileType.Store:
-                Debug.Log("Store tile! Trigger store event here.");
-                break;
-
-            default:
-                Debug.Log($"{player.name} landed on a neutral tile.");
-                break;
+            {
+                if (effect != null)
+                {
+                    effect.Apply(player);
+                }
+            }
         }
     }
 }
+
